@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Welcome to the Flask & Celery Starter App!</h1>
+<p>
+    Check out the <a href="{{ url_for('tasks.add_task_form') }}">Tasks</a> section
+    to start some background tasks.
+</p>
+{% endblock %}
