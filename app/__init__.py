@@ -1,11 +1,11 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+
 from celery import Celery, Task
 
-# Database
-db = SQLAlchemy()
-migrate = Migrate()
+from app.models import User, db, migrate
+from werkzeug.security import generate_password_hash
+
+
 
 def celery_init_app(app: Flask) -> Celery:
     class FlaskTask(Task):
@@ -19,28 +19,58 @@ def celery_init_app(app: Flask) -> Celery:
     app.extensions["celery"] = celery_app
     return celery_app
 
-def create_app() -> Flask:
+def create_app(local=False) -> Flask:
     app = Flask(__name__)
+    
+    # Determine Redis host based on environment
+    redis_host = "localhost" if local else "redis"
+    redis_url = f"redis://{redis_host}:6379/0"
+    
     app.config.from_mapping(
-        SECRET_KEY="your_secret_key", # Add a secret key
+        SECRET_KEY="your_secret_key",  # Add a secret key
         SQLALCHEMY_DATABASE_URI="sqlite:///app.db",
         CELERY=dict(
-            broker_url="redis://redis:6379/0",
-            result_backend="redis://redis:6379/0",
+            broker_url=redis_url,
+            result_backend=redis_url,
             task_ignore_result=True,
         ),
     )
-
+    
     # Initialize extensions
     db.init_app(app)
+    
+    @app.before_first_request
+    def create_tables():
+        db.create_all()
+        # Check if the user already exists
+        user = User.query.filter_by(username='admin').first()
+        if not user:
+            # Hash the password
+            hashed_password = generate_password_hash('password')  # Replace with your actual password
+            # Create a new user
+            new_user = User(
+                username='admin',
+                email='admin@example.com',
+                password_hash=hashed_password,
+                verified=True
+            )
+            db.session.add(new_user)
+            db.session.commit()
+    
     migrate.init_app(app, db)
     celery_init_app(app)
-
-    # Register blueprints
+    
+    from .auth import bp as auth_bp
     from .main import bp as main_bp
+    from .feed import bp as feeds_bp
+    from .auth import login_manager, avatars, mail
+    
+    login_manager.init_app(app)
+    avatars.init_app(app)
+    mail.init_app(app)
+    
+    app.register_blueprint(auth_bp, url_prefix="/challenge")
+    app.register_blueprint(feeds_bp, url_prefix="/feeds")
     app.register_blueprint(main_bp)
-
-    from .tasks import bp as tasks_bp
-    app.register_blueprint(tasks_bp, url_prefix="/tasks")
-
+    
     return app

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div>
+    <form method="POST" action="{{ url_for('auth.login') }}">
+        <fieldset>
+            <legend>Login</legend>
+            {{ form.hidden_tag() }}
+            <div>
+                <label for="email">{{ form.email.label }}</label><br>
+                {{ form.email() }}<br>
+                {% for error in form.email.errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            <br>
+            <div>
+                <label for="password">{{ form.password.label }}</label><br>
+                {{ form.password(type="password") }}<br>
+                {% for error in form.password.errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            <br>
+            <div>
+                {{ form.remember() }}
+                {{ form.remember.label }}
+            </div>
+            <br>
+            <div>
+                <a href="{{ url_for('auth.reset_password_request') }}">Forgot password</a>
+                <a href="{{ url_for('auth.register') }}">Create account</a>
+            </div>
+            <br>
+            {{ form.submit() }}
+        </fieldset>
+    </form>
+</div>
+{% endblock %}
